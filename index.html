@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MPS 예약프로그램</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    /* 스크롤바 커스텀 */
+    ::-webkit-scrollbar { height: 8px; width: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #c7c7cc; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-800 font-sans p-4 md:p-8 relative">
+
+  <!-- 글로벌 에러 알림 -->
+  <div id="global-message" class="hidden fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded shadow-lg z-50 text-sm font-medium transition-opacity"></div>
+
+  <div class="max-w-6xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-100">
+    
+    <!-- 헤더 부분 -->
+    <div class="flex flex-col md:flex-row justify-between items-center p-6 border-b border-gray-100 bg-white">
+      <div class="flex items-center gap-3 mb-4 md:mb-0">
+        <div class="bg-indigo-600 p-2 rounded-lg">
+          <i data-lucide="calendar" class="w-6 h-6 text-white"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-gray-800 tracking-tight">MPS 예약 현황</h1>
+      </div>
+      
+      <div class="flex items-center gap-4 flex-wrap justify-center">
+        <!-- 로그인 인증 UI -->
+        <div id="auth-container" class="flex items-center gap-2">
+          <span class="text-sm text-gray-500">인증 로딩중...</span>
+        </div>
+
+        <!-- 관리자 모드 토글 -->
+        <button id="admin-toggle-btn" onclick="toggleAdmin()" class="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200">
+          <i id="admin-icon" data-lucide="shield-alert" class="w-4 h-4"></i>
+          <span id="admin-text">관리자 모드 OFF</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 캘린더 컨트롤 부분 -->
+    <div class="flex justify-between items-center p-4 bg-gray-50/50 border-b border-gray-100">
+      <button onclick="changeWeek(-7)" class="p-2 rounded-full hover:bg-gray-200 text-gray-600 transition">
+        <i data-lucide="chevron-left" class="w-5 h-5"></i>
+      </button>
+      <div id="month-title" class="text-lg font-bold text-gray-700"></div>
+      <button onclick="changeWeek(7)" class="p-2 rounded-full hover:bg-gray-200 text-gray-600 transition">
+        <i data-lucide="chevron-right" class="w-5 h-5"></i>
+      </button>
+    </div>
+
+    <!-- 주간 캘린더 그리드 -->
+    <div class="overflow-x-auto">
+      <table class="w-full min-w-[800px] border-collapse bg-white">
+        <thead>
+          <tr id="calendar-head">
+            <!-- 자바스크립트로 생성됨 -->
+          </tr>
+        </thead>
+        <tbody id="calendar-body">
+          <!-- 자바스크립트로 생성됨 -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 예약 추가 모달 -->
+  <div id="add-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="text-lg font-bold text-gray-800">예약 추가</h3>
+        <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600 transition p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-6">
+        <div class="mb-4 text-sm text-gray-600 flex items-center gap-2 bg-gray-50 p-3 rounded-lg">
+          <i data-lucide="calendar" class="w-4 h-4 text-indigo-500"></i>
+          <span id="modal-date-text"></span>
+          <span id="modal-time-text" class="font-bold text-indigo-600"></span>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">소속팀</label>
+          <input type="text" id="modal-team" placeholder="예: 개발팀, 영업팀" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition mb-3">
+          
+          <label class="block text-sm font-medium text-gray-700 mb-1">예약자 이름</label>
+          <input type="text" id="modal-name" placeholder="이름을 입력하세요" onkeydown="if(event.key==='Enter') saveReservation()" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+        </div>
+      </div>
+      <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+        <button onclick="closeAddModal()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">취소</button>
+        <button onclick="saveReservation()" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 관리자 비밀번호 인증 모달 -->
+  <div id="admin-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+      <div class="p-5 border-b border-gray-100 flex justify-between items-center">
+        <h3 class="text-lg font-bold text-gray-800">관리자 인증</h3>
+        <button onclick="closeAdminModal()" class="text-gray-400 hover:text-gray-600 transition p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1">관리자 비밀번호</label>
+        <input type="password" id="admin-pwd" placeholder="비밀번호를 입력하세요" oninput="document.getElementById('admin-error').textContent=''" onkeydown="if(event.key==='Enter') confirmAdmin()" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+        <p id="admin-error" class="text-red-500 text-xs mt-2"></p>
+      </div>
+      <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2">
+        <button onclick="closeAdminModal()" class="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">취소</button>
+        <button onclick="confirmAdmin()" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 스크립트 모듈 -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, onSnapshot, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // 클라우드 초기화
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const googleProvider = new GoogleAuthProvider();
+
+    // 상태 변수
+    let currentDate = new Date();
+    let isAdmin = false;
+    let reservations = {};
+    let currentUser = null;
+    let selectedSlot = { date: '', time: '' };
+
+    const TIME_SLOTS = [
+      { label: '13:00', value: '13:00' }, { label: '14:00', value: '14:00' },
+      { label: '15:00', value: '15:00' }, { label: '16:00', value: '16:00' },
+      { label: '17:00', value: '17:00' }, { label: '18:00', value: '18:00' },
+      { label: '19:00', value: '19:00' }, { label: '20:00', value: '20:00' }
+    ];
+    const DAYS_OF_WEEK = ['월', '화', '수', '목', '금', '토', '일'];
+
+    // 유틸: 날짜 처리
+    function getStartOfWeek(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      return new Date(d.getFullYear(), d.getMonth(), diff);
+    }
+
+    function formatDate(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getWeekDates() {
+      const start = getStartOfWeek(currentDate);
+      return Array.from({ length: 7 }).map((_, i) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        return d;
+      });
+    }
+
+    function escapeHtml(unsafe) {
+      return (unsafe || '').toString()
+           .replace(/&/g, "&amp;")
+           .replace(/</g, "&lt;")
+           .replace(/>/g, "&gt;")
+           .replace(/"/g, "&quot;")
+           .replace(/'/g, "&#039;");
+    }
+
+    // 글로벌 메시지
+    function showMessage(msg, isError = false) {
+      const el = document.getElementById('global-message');
+      el.textContent = msg;
+      el.className = `fixed top-4 right-4 px-6 py-3 rounded shadow-lg z-50 text-sm font-medium transition-opacity ${isError ? 'bg-red-500' : 'bg-green-500'} text-white`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    // 렌더링: 인증 UI (수정됨: 인증 실패 시 멈춤 현상 해결)
+    function renderAuthUI() {
+      const container = document.getElementById('auth-container');
+
+      // 로그인 전이거나 익명 사용자일 때 무조건 '구글 로그인' 표시
+      if (!currentUser || currentUser.isAnonymous) {
+        container.innerHTML = `
+          <button onclick="loginGoogle()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-full text-sm font-semibold text-gray-700 hover:bg-gray-50 transition shadow-sm">
+            <svg class="w-4 h-4" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            구글 로그인
+          </button>
+        `;
+      } else {
+        const name = currentUser.displayName || '구글 사용자';
+        container.innerHTML = `
+          <div class="flex items-center gap-3 bg-indigo-50 px-3 py-1.5 rounded-full border border-indigo-100">
+            <div class="w-6 h-6 rounded-full bg-indigo-200 flex items-center justify-center text-indigo-700 text-xs font-bold">${name[0]}</div>
+            <span class="text-sm font-medium text-indigo-900">${name}님</span>
+            <button onclick="logoutAuth()" class="ml-2 text-xs font-semibold text-gray-500 hover:text-red-500 transition">로그아웃</button>
+          </div>
+        `;
+      }
+    }
+
+    // 렌더링: 관리자 버튼 업데이트
+    function updateAdminBtn() {
+      const btn = document.getElementById('admin-toggle-btn');
+      const icon = document.getElementById('admin-icon');
+      const text = document.getElementById('admin-text');
+      
+      if (isAdmin) {
+        btn.className = "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 bg-indigo-100 text-indigo-700 border border-indigo-200 hover:bg-indigo-200";
+        icon.setAttribute('data-lucide', 'shield');
+        text.textContent = '관리자 모드 ON';
+      } else {
+        btn.className = "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200";
+        icon.setAttribute('data-lucide', 'shield-alert');
+        text.textContent = '관리자 모드 OFF';
+      }
+      lucide.createIcons();
+    }
+
+    // 렌더링: 캘린더 업데이트
+    function renderCalendar() {
+      const weekDates = getWeekDates();
+      const todayStr = formatDate(new Date());
+
+      // 달력 제목
+      const sDate = weekDates[0];
+      const eDate = weekDates[6];
+      document.getElementById('month-title').textContent = sDate.getMonth() === eDate.getMonth() 
+        ? `${sDate.getFullYear()}년 ${sDate.getMonth() + 1}월`
+        : `${sDate.getFullYear()}년 ${sDate.getMonth() + 1}월 - ${eDate.getMonth() + 1}월`;
+
+      // 달력 헤더 (요일/날짜)
+      let headHtml = `<th class="w-24 p-3 border-b border-r border-gray-200 bg-gray-50 text-gray-500 font-medium text-sm">시간</th>`;
+      weekDates.forEach((date, i) => {
+        const isToday = formatDate(date) === todayStr;
+        const colorClass = i === 5 ? 'text-blue-500' : i === 6 ? 'text-red-500' : 'text-gray-600';
+        const bgClass = isToday ? 'bg-indigo-600 text-white' : 'text-gray-800';
+        headHtml += `
+          <th class="p-3 border-b border-r border-gray-200 bg-gray-50/80 min-w-[120px]">
+            <div class="flex flex-col items-center gap-1">
+              <span class="text-sm font-semibold ${colorClass}">${DAYS_OF_WEEK[i]}</span>
+              <span class="text-lg font-bold w-8 h-8 flex items-center justify-center rounded-full ${bgClass}">${date.getDate()}</span>
+            </div>
+          </th>`;
+      });
+      document.getElementById('calendar-head').innerHTML = headHtml;
+
+      // 달력 바디 (시간 및 슬롯)
+      let bodyHtml = '';
+      TIME_SLOTS.forEach(time => {
+        bodyHtml += `<tr class="group hover:bg-indigo-50/30 transition-colors">`;
+        bodyHtml += `<td class="p-3 border-b border-r border-gray-200 text-center font-medium text-gray-600 text-sm bg-gray-50/30">${time.label}</td>`;
+        
+        weekDates.forEach(date => {
+          const dateStr = formatDate(date);
+          const key = `${dateStr}_${time.value}`;
+          const slotRes = reservations[key] || [];
+          const isFull = slotRes.length >= 3;
+
+          let cellHtml = `<div class="flex flex-col gap-1 h-full min-h-[5rem]">`;
+          
+          slotRes.forEach((res, idx) => {
+            const displayName = typeof res === 'string' ? res : `${res.name} (${res.team})`;
+            cellHtml += `
+              <div class="flex items-center justify-between bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-sm font-medium shadow-sm">
+                <div class="flex items-center gap-1 truncate max-w-[90%]">
+                  <i data-lucide="user" class="w-3 h-3 opacity-70 flex-shrink-0"></i>
+                  <span class="truncate text-xs font-bold">${escapeHtml(displayName)}</span>
+                </div>
+                ${isAdmin ? `<button onclick="deleteReservation('${dateStr}', '${time.value}', ${idx})" class="text-indigo-400 hover:text-red-500 p-0.5 rounded transition flex-shrink-0"><i data-lucide="x" class="w-3 h-3"></i></button>` : ''}
+              </div>`;
+          });
+
+          if (!isFull && slotRes.length > 0) {
+            cellHtml += `<div class="text-xs text-gray-400 text-center mt-1">${3 - slotRes.length}자리 남음</div>`;
+          }
+
+          if (isAdmin && !isFull) {
+            cellHtml += `<button onclick="showAddModal('${dateStr}', '${time.value}')" class="mt-auto flex items-center justify-center gap-1 w-full py-1.5 border border-dashed border-gray-300 rounded text-gray-400 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-xs font-medium"><i data-lucide="plus" class="w-3 h-3"></i> 추가</button>`;
+          }
+
+          if (!isAdmin && isFull) {
+            cellHtml += `<div class="mt-auto flex items-center justify-center w-full py-1 bg-gray-100 rounded text-gray-500 text-xs font-bold">예약 마감</div>`;
+          }
+
+          cellHtml += `</div>`;
+          bodyHtml += `<td class="p-2 border-b border-r border-gray-200 align-top relative">${cellHtml}</td>`;
+        });
+        bodyHtml += `</tr>`;
+      });
+      document.getElementById('calendar-body').innerHTML = bodyHtml;
+      
+      // 아이콘 렌더링
+      lucide.createIcons();
+    }
+
+    // 글로벌 액션 (Window 객체에 할당)
+    window.changeWeek = (days) => {
+      currentDate.setDate(currentDate.getDate() + days);
+      renderCalendar();
+    };
+
+    window.toggleAdmin = () => {
+      if (isAdmin) {
+        isAdmin = false;
+        updateAdminBtn();
+        renderCalendar();
+      } else {
+        document.getElementById('admin-pwd').value = '';
+        document.getElementById('admin-error').textContent = '';
+        document.getElementById('admin-modal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('admin-pwd').focus(), 100);
+      }
+    };
+
+    window.closeAdminModal = () => {
+      document.getElementById('admin-modal').classList.add('hidden');
+    };
+
+    window.confirmAdmin = () => {
+      const pwd = document.getElementById('admin-pwd').value;
+      if (pwd === '1824') {
+        isAdmin = true;
+        updateAdminBtn();
+        renderCalendar();
+        closeAdminModal();
+        showMessage("관리자 모드가 활성화되었습니다.");
+      } else {
+        document.getElementById('admin-error').textContent = '비밀번호가 일치하지 않습니다.';
+      }
+    };
+
+    window.showAddModal = (date, time) => {
+      selectedSlot = { date, time };
+      document.getElementById('modal-date-text').textContent = date;
+      document.getElementById('modal-time-text').textContent = time;
+      document.getElementById('modal-team').value = '';
+      document.getElementById('modal-name').value = '';
+      document.getElementById('add-modal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('modal-team').focus(), 100);
+    };
+
+    window.closeAddModal = () => {
+      document.getElementById('add-modal').classList.add('hidden');
+    };
+
+    window.saveReservation = async () => {
+      const team = document.getElementById('modal-team').value.trim();
+      const name = document.getElementById('modal-name').value.trim();
+      
+      if (!team || !name || !currentUser) return;
+
+      const key = `${selectedSlot.date}_${selectedSlot.time}`;
+      const currentList = reservations[key] || [];
+      if (currentList.length >= 3) return;
+
+      const updatedList = [...currentList, { name, team }];
+
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'reservations', key);
+        await setDoc(docRef, { names: updatedList });
+        closeAddModal();
+      } catch (error) {
+        console.error("저장 오류:", error);
+        showMessage("저장 중 오류가 발생했습니다.", true);
+      }
+    };
+
+    window.deleteReservation = async (dateStr, timeStr, index) => {
+      if (!currentUser) return;
+
+      const key = `${dateStr}_${timeStr}`;
+      const currentList = reservations[key] || [];
+      const newList = currentList.filter((_, idx) => idx !== index);
+      
+      try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'reservations', key);
+        await setDoc(docRef, { names: newList });
+      } catch (error) {
+        console.error("삭제 오류:", error);
+        showMessage("삭제 중 오류가 발생했습니다.", true);
+      }
+    };
+
+    // 구글 로그인 처리
+    window.loginGoogle = async () => {
+      try {
+        await signInWithPopup(auth, googleProvider);
+        showMessage("구글 계정으로 로그인되었습니다.");
+      } catch (error) {
+        console.error("구글 로그인 오류:", error);
+        showMessage("로그인 팝업이 차단되었거나 오류가 발생했습니다. 브라우저 설정을 확인해주세요.", true);
+      }
+    };
+
+    window.logoutAuth = async () => {
+      try {
+        await signOut(auth);
+        showMessage("로그아웃 되었습니다.");
+        initAuthFallback(); // 로그아웃 후 다시 익명 계정으로 전환
+      } catch (error) {
+        console.error("로그아웃 오류:", error);
+      }
+    };
+
+    // 파이어베이스 인증 초기화
+    async function initAuthFallback() {
+      try {
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          await signInAnonymously(auth);
+        }
+      } catch (error) {
+        console.error("인증 오류:", error);
+        // 에러가 발생해도 로딩에서 멈추지 않도록 강제 UI 렌더링
+        renderAuthUI();
+        renderCalendar();
+      }
+    }
+
+    // 앱 시작 시 초기화
+    initAuthFallback();
+
+    // 인증 상태 감지 (수정됨: 상태와 무관하게 달력을 그리도록 조치)
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      renderAuthUI();
+      
+      if (user) {
+        // 예약 데이터 실시간 구독 (모든 사용자가 볼 수 있는 Public 공간)
+        const reservationsRef = collection(db, 'artifacts', appId, 'public', 'data', 'reservations');
+        onSnapshot(reservationsRef, (snapshot) => {
+          const newReservations = {};
+          snapshot.forEach((doc) => {
+            newReservations[doc.id] = doc.data().names || [];
+          });
+          reservations = newReservations;
+          renderCalendar();
+        }, (error) => {
+          console.error("데이터 구독 오류:", error);
+          renderCalendar(); // 오류가 나더라도 빈 달력이라도 렌더링
+        });
+      } else {
+        renderCalendar(); // 사용자 인증이 없어도 기본 달력 렌더링
+      }
+    });
+
+  </script>
+</body>
+</html>
