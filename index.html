@@ -163,7 +163,7 @@
   <!-- 스크립트 모듈 -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, onSnapshot, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // 상태 변수
@@ -188,26 +188,36 @@
     // ==========================================
     // 클라우드 초기화 및 영구 저장소 세팅
     // ==========================================
-    let app, auth, db, appId = 'default-app-id';
+    let app, auth, db;
     
     const initCloud = async () => {
       try {
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
-          throw new Error("환경 설정 누락");
-        }
+        // =========================================================================
+        // 사용자의 Firebase 설정값 적용 완료
+        // =========================================================================
+        const firebaseConfig = {
+          apiKey: "AIzaSyCohqQ3ySjCdWKZSujhKF-7XbSiV1bJPX0",
+          authDomain: "mpsreserve.firebaseapp.com",
+          projectId: "mpsreserve",
+          storageBucket: "mpsreserve.firebasestorage.app",
+          messagingSenderId: "961426297157",
+          appId: "1:961426297157:web:d61df305fd504870782e2c",
+          measurementId: "G-BCYFJV4MTC"
+        };
         
+        // 사용자가 아직 설정값을 입력하지 않은 경우를 위한 방어 코드
+        if (firebaseConfig.apiKey === "YOUR_API_KEY") {
+          console.warn("Firebase 설정값이 입력되지 않았습니다. 코드를 열어 firebaseConfig를 수정해주세요.");
+          document.getElementById('cloud-status').innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> 설정 누락`;
+          return;
+        }
+
         app = initializeApp(firebaseConfig);
         auth = getAuth(app);
         db = getFirestore(app);
-        appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // 1. 보안 인증 대기 (이 과정이 끝나야 완벽히 저장 가능)
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
+        // 1. 익명 로그인 (Firebase 콘솔 Authentication에서 '익명' 로그인 제공업체를 꼭 사용 설정해야 합니다)
+        await signInAnonymously(auth);
 
         // 2. 인증 후 실시간 동기화 리스너 등록
         onAuthStateChanged(auth, (user) => {
@@ -217,7 +227,8 @@
           isCloudConnected = true;
           document.getElementById('cloud-status').innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div> 저장소 연결됨`;
 
-          const reservationsRef = collection(db, 'artifacts', appId, 'public', 'data', 'reservations');
+          // 단순화된 데이터베이스 경로 사용
+          const reservationsRef = collection(db, 'reservations');
           onSnapshot(reservationsRef, (snapshot) => {
             const newReservations = {};
             snapshot.forEach((doc) => {
@@ -227,6 +238,10 @@
             renderCalendar(); // 데이터 갱신 후 즉각 화면 다시 그리기
           }, (error) => {
             console.error("데이터 동기화 실패:", error);
+            // 권한 오류 시 알림
+            if (error.code === 'permission-denied') {
+              showMessage("데이터베이스 권한이 없습니다. Firebase 규칙을 확인해주세요.", true);
+            }
           });
         });
       } catch (error) {
@@ -555,12 +570,12 @@
 
       // 클라우드 접속 전이면 경고 알림
       if (!isCloudConnected || !db || !currentUser) {
-         showMessage("클라우드 연결 중입니다. 새로고침 시 초기화될 수 있습니다.", true);
+         showMessage("클라우드 설정이 누락되어 로컬에만 임시 저장되었습니다.", true);
          return;
       }
 
       try {
-        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'reservations', key);
+        const docRef = doc(db, 'reservations', key);
         await setDoc(docRef, { names: updatedList });
         showMessage("예약이 안전하게 저장되었습니다."); // 저장 보장 확인
       } catch (error) {
@@ -580,7 +595,7 @@
       if (!isCloudConnected || !db || !currentUser) return;
 
       try {
-        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'reservations', key);
+        const docRef = doc(db, 'reservations', key);
         await setDoc(docRef, { names: newList });
         showMessage("예약이 삭제되었습니다.");
       } catch (error) {
